@@ -173,13 +173,9 @@ input_X_valid = test_X.as_matrix()[:split]
 input_Y_valid = test_Y.as_matrix()[:split]
 input_X_test = test_X.as_matrix()[split:]
 input_Y_test = test_Y.as_matrix()[split:]
-
-
 # 设置每个隐含层的节点数
 def calculate_hidden_nodes(nodes):
     return (((2 * nodes) / 3) + num_labels)
-
-
 hidden_nodes1 = round(calculate_hidden_nodes(input_nodes))
 hidden_nodes2 = round(calculate_hidden_nodes(hidden_nodes1))
 hidden_nodes3 = round(calculate_hidden_nodes(hidden_nodes2))
