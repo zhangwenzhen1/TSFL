@@ -36,12 +36,12 @@ class potential(object):
         train_X = comp.sample(frac=0.8)
         print("投诉样本数:{}".format(len(train_X)))
         # 将1%的非投诉样本添加到train_X
-        train_X = pd.concat([train_X, notcomp.sample(frac=0.01)], axis=0)
+        train_X = pd.concat([train_X, notcomp.sample(frac=0.2)], axis=0)
         print("总样本数:{}".format(len(train_X)))
         # 使test_X包含不在train_X中的数据
         test_X1 = comp.loc[~comp.index.isin(train_X.index)]
         print("测试投诉样本数:{}".format(len(test_X1)))
-        test_X2 = notcomp.loc[~notcomp.index.isin(train_X.index)].sample(frac=0.02)
+        test_X2 = notcomp.loc[~notcomp.index.isin(train_X.index)].sample(frac= 0.05)
         print("测试非投诉样本数:{}".format(len(test_X2)))
         test_X = pd.concat([test_X1, test_X2], axis=0)
         # 使用shuffle函数打乱数据
@@ -57,6 +57,21 @@ class potential(object):
         test_X.drop(['id', 'cgi1', 'cgi2', 'date', 'yewu_type'], axis=1, inplace=True)
         traindata = train_X
         return traindata, test_X
+
+    #5万数据预测
+    def testdata(self,mm,tar):
+        testdata = self.data[mm]
+        testdata.fillna(0, inplace=True)
+        print("预测总样本数",testdata.iloc[:, 0].size)
+        # 使用shuffle函数打乱数据
+        testdata = shuffle(testdata)
+        ytestdata = testdata[['iscomp']].values
+        testdata1 = testdata.drop(['iscomp'], axis=1)
+        testdata_1 =self.dataNormalized(testdata1)
+        # X2 = testdata_1.values
+        self.model_predict(tar,testdata_1,ytestdata)
+
+
 
     def fig_Picture(self, traindata):
         # 可视化数据
@@ -126,15 +141,17 @@ class potential(object):
             'objective': 'multi:softmax',  # 多分类的问题 指定学习任务和相应的学习目
             'num_class': 2,  # 类别数，多分类与 multisoftmax 并
             'gamma': 0.1,  # 树的叶子节点上作进一步分区所需的最小损失减少,越大越保守，一般0.1、0.2这样子
-            'max_depth': 6,  # 构建树的深度，越大越容易过拟合
+            'max_depth': 2,  # 构建树的深度，越大越容易过拟合
             'lambda': 2,  # 控制模型复杂度的权重值的L2正则化项参数，参数越大，模型越不容易过拟合
             'subsample': 0.7,  # 随机采样训练样本，训练实例的子采样比
             'colsample_bytree': 0.7,  # 生成树时进行的列采样
-            'min_child_weight': 3,  # 这个参数默认是 1，是每个叶子里面 h 的和至少是多少，对正负样本不均衡时的 0-1 分类而言假设 h
+            'min_child_weight': 2,  # 这个参数默认是 1，是每个叶子里面 h 的和至少是多少，对正负样本不均衡时的 0-1 分类而言假设 h
             # 在 0.01 附近，min_child_weight 为 1 意味着叶子节点中最少需要包含 100 个样本。这个参数非常影响结果，控制叶子节点中
             # 二阶导的和的最小值，该参数值越小，越容易 overfitting
             # 'slient': 1,
-            'eta': 0.1,  # 学习率
+            # 'n_estimators':100,  # 决策树数量
+            # 'num_round':100,#决策树数量
+            'eta': 0.01,  # 学习率
             'seed': 1000,  # 随机种子
             'nthread': 4,  # cpu 线程数 默认最大
         }
@@ -158,6 +175,8 @@ class potential(object):
         # 对测试集进行预测
         dtest = xgb.DMatrix(X_test, feature_names=b)
         y_pred = model.predict(dtest)
+        # y_proba = model.predict_proba(dtest)
+        # print(y_proba)
         # print(y_pred)
         # 计算准确率
         accuracy = accuracy_score(y_test, y_pred)
@@ -182,6 +201,7 @@ class potential(object):
     def model_predict(self, tar, test, ytest):
         dtest = xgb.DMatrix(test)
         preds = tar.predict(dtest)
+        print()
         # 计算准确率
         test_accuracy = accuracy_score(ytest, preds)
         print('test_accuracy:%.2f%%' % (test_accuracy * 100))
@@ -207,7 +227,8 @@ class potential(object):
     def run(self):
         # 数据帅选
         traindata, test_X = self.choosedata()
-
+        # print("traindata",traindata.head())
+        # print("test_X",test_X.head())
         # 数据可视化特征
         self.fig_Picture(traindata)
 
@@ -215,7 +236,7 @@ class potential(object):
         traindata.drop(['copm_count'], axis=1, inplace=True)
         traindata_1 = traindata.drop(['iscomp'], axis=1)
         traindata_1 = self.dataNormalized(traindata_1)
-
+        # print("traindata_1", traindata_1.head())
         # 用所有属性训练
         X = traindata_1.values
         b = traindata_1.columns
@@ -236,6 +257,8 @@ class potential(object):
         b2 = importance_property
         y2 = traindata_2[['iscomp']].values
         traindata_2 = traindata_2.drop(['iscomp'], axis=1)
+        traindata_2 = self.dataNormalized(traindata_2)
+        print("traindata_2", traindata_2.head())
         X2 = traindata_2.values
 
         print("重要属性训练模型结果：")
@@ -251,7 +274,14 @@ class potential(object):
         # 模型预测
         test = test_X[mm].drop(['iscomp'], axis=1)
         y_test = test_X[['iscomp']].as_matrix()
+
+        # # 测试数据据归一化处理
+        test = self.dataNormalized(test)
+
         self.model_predict(tar, test, y_test)
+
+        print("5万数据预测")
+        self.testdata(mm,tar)
 
 
 if __name__ == "__main__":
@@ -264,6 +294,7 @@ if __name__ == "__main__":
     data = pd.DataFrame(data)
     a.finish()
     data.to_csv('D:\临时文件/potentialdata.csv', header=1, encoding='gbk')
+    data = data.drop_duplicates()
     # 调用potential类
     task = potential(data)
     task.run()
