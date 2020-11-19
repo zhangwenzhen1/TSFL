@@ -2,6 +2,7 @@
 from Postgresql import *
 from sklearn.model_selection import train_test_split
 from sklearn.model_selection import GridSearchCV
+from xgboost import plot_tree
 from xgboost import XGBClassifier
 import xgboost as xgb
 from xgboost import plot_importance
@@ -114,7 +115,7 @@ class potential(object):
         # print(traindata.columns)
         return traindata
 
-    def split_Train_TestData(self, X, y, b):
+    def split_Train_TestData(self, X, y):
         """
         # 获取最优参数
         """
@@ -142,9 +143,9 @@ class potential(object):
         # 数据集分割
         X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=123457)
         xgb1 = XGBClassifier(
-            max_depth=2,  # 构建树的深度
-            learning_rate=0.01,  # 如同学习率
-            n_estimators=100,  # 决策树数量
+            max_depth=4,  # 构建树的深度
+            learning_rate=0.25,  # 如同学习率
+            n_estimators=300,  # 决策树数量
             # silent=False,
             objective='multi:softprob',  # 多分类的问题 指定学习任务和相应的学习目的
             booster='gbtree',
@@ -195,7 +196,7 @@ class potential(object):
             'objective': 'multi:softmax',  # 多分类的问题 指定学习任务和相应的学习目
             'num_class': 2,  # 类别数，多分类与 multisoftmax 并
             'gamma': 0.1,  # 树的叶子节点上作进一步分区所需的最小损失减少,越大越保守，一般0.1、0.2这样子
-            'max_depth': 2,  # 构建树的深度，越大越容易过拟合
+            'max_depth': 4,  # 构建树的深度，越大越容易过拟合
             'lambda': 2,  # 控制模型复杂度的权重值的L2正则化项参数，参数越大，模型越不容易过拟合
             'subsample': 0.7,  # 随机采样训练样本，训练实例的子采样比
             'colsample_bytree': 0.7,  # 生成树时进行的列采样
@@ -205,7 +206,7 @@ class potential(object):
             # 'slient': 1,
             # 'n_estimators':100,  # 决策树数量
             # 'num_round':100,#决策树数量
-            'eta': 0.01,  # 学习率
+            'eta': 0.25,  # 学习率
             'seed': 1000,  # 随机种子
             'nthread': 4,  # cpu 线程数 默认最大
         }
@@ -244,6 +245,12 @@ class potential(object):
     def load_model_1(self, path, model_name):
 
         loaded_model = pickle.load(open(path + '/' + model_name, "rb"))
+
+        # digraph = xgb.to_graphviz(loaded_model, num_trees=0)
+        # digraph.format = 'png'
+        # digraph.view(path + '/tsyc1_xgb')
+        # plot_tree(loaded_model, num_trees=0)
+        # plt.show()
         return loaded_model
 
     def model_predict(self, loaded_model, test, ytest):
@@ -302,6 +309,18 @@ class potential(object):
         mm = list(importance_property)
         m = 'iscomp'
         mm.append(m)
+        # 选取最优参数
+        ###############################################################
+        # testdata = self.data[mm]
+        # testdata.fillna(0, inplace=True)
+        # print("预测总样本数", testdata.iloc[:, 0].size)
+        # # 使用shuffle函数打乱数据
+        # testdata = shuffle(testdata)
+        # ytestdata = testdata[['iscomp']].values
+        # testdata1 = testdata.drop(['iscomp'], axis=1)
+        # testdata_1 = self.dataNormalized(testdata1)
+        # self.split_Train_TestData( testdata_1, ytestdata)
+        #############################################################
         traindata_2 = traindata[mm]
         b2 = importance_property
         y2 = traindata_2[['iscomp']].values
@@ -330,8 +349,6 @@ class potential(object):
         print('查准率：', b['preds'])
         print("5万数据预测")
         c, d = self.testdata(mm, loaded_model)
-        print(c['preds'], d['preds'])
-
         print('查全率：', c['preds'])
         print('查准率：', d['preds'])
 
@@ -344,6 +361,7 @@ class potential(object):
         d = 20
         while a < 50 or b < 50 or c < 50 or d < 50:
             a, b, c, d = self.run()
+            print('准确率：\n',a,b,c,d)
 
 
 if __name__ == "__main__":
